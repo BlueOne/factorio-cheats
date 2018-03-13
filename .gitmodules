@@ -1,0 +1,3 @@
+[submodule "factorio-utilities"]
+	path = Utils
+	url = git@github.com:BlueOne/factorio-utilities.git

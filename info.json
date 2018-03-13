@@ -1,0 +1,9 @@
+{
+  "name": "various-tools",
+  "version": "0.0.1",
+  "factorio_version": "0.16",
+  "title": "Various Tools",
+  "author": "blueblue",
+  "description": "Bundles cheats and tools that I've used for scenario creation and speedrun planning. Zoom Hotkeys, Game Speed Hotkeys and tick display, basic cliff editing, entity teleportation via shift+arrow keys, surface movement hotkeys, technology cost calculator, set biters inactive.",
+  "dependencies": ["base >= 0.16.0"]
+}
