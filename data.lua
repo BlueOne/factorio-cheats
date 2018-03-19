@@ -4,6 +4,8 @@ local ProtUtils = require("Utils.Prototype")
 local cliff_dummy_cfg = require("cliff_dummy_cfg")
 
 
+if not data then error("data.lua imported outside data stage.") end
+
 -- Inputs
 --------------------------------------------------------------------------
 
@@ -59,6 +61,28 @@ data:extend{
         key_sequence = "CONTROL + G"
     },
 } 
+
+
+
+-- Game Speed
+data:extend{
+	{
+		type = "custom-input",
+		name = "speedctrl-halt",
+		key_sequence = "Shift + Comma"
+	},
+	{
+		type = "custom-input",
+		name = "speedctrl-speed-up",
+		key_sequence = "PERIOD"
+	},
+	{
+		type = "custom-input",
+		name = "speedctrl-speed-down",
+		key_sequence = "COMMA"
+	},
+} 
+
 
 
 

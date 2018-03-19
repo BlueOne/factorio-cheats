@@ -5,7 +5,9 @@
 local cliff_dummy_cfg = require("cliff_dummy_cfg")
 local Table = require("Utils.Table")
 local Event = require("stdlib.event.event")
-
+local Math = require("Utils.Maths")
+local Gui = require("Utils.Gui")
+require("mod-gui")
 
 
 -- TODO: Everything below Zoom is untested!
@@ -57,7 +59,7 @@ local function replace_cliffs(surface, area)
 end
 
 
-script.on_event("replace-dummies", function(event)
+Event.register("replace-dummies", function(event)
     local player = game.players[event.player_index]
     replace_dummies(player.surface)
 
@@ -67,7 +69,7 @@ script.on_event("replace-dummies", function(event)
     end
 end)
 
-script.on_event("replace-cliffs", function(event)
+Event.register("replace-cliffs", function(event)
     local player = game.players[event.player_index]
     global.cliff_editing_players = global.cliff_editing_players or {}
     if not global.cliff_editing_players[event.player_index] then
@@ -97,6 +99,7 @@ local inactive_types_default = {"unit", "unit-spawner", "turret", "fluid-turret"
 global.inactive_types = global.inactive_types or inactive_types_default
 
 local function deactivate_entities(surface, area)
+    if not settings.global["cheats-inactive-spawners"].value then return end
     for _, t in pairs(global.inactive_types) do
         for _, ent in pairs(surface.find_entities_filtered{type=t, area=area}) do
             ent.active = false
@@ -116,7 +119,7 @@ end)
 
 Event.register(defines.events.on_built_entity, function(event)
     local entity = event.created_entity
-    if Table.find(entity.type, global.inactive_types) then
+    if settings.global["cheats-inactive-spawners"].value and Table.find(entity.type, global.inactive_types) then
         entity.active = false
     end
 end)
@@ -242,10 +245,10 @@ end)
 
 commands.add_command("resetsurfaces", "Regenerate resources on active surfaces.", reset_surfaces)
 
-script.on_event("surface-up", function (event)
+Event.register("surface-up", function (event)
 	shift_surface(game.players[event.player_index], 1)
 end)
-script.on_event("surface-down", function (event)
+Event.register("surface-down", function (event)
 	shift_surface(game.players[event.player_index], -1)
 end)
 
@@ -254,7 +257,7 @@ end)
 -- Zoom Hotkeys
 ------------------------------------------------------------------------------
 
-script.on_event("more-zoom", function (event)
+Event.register("more-zoom", function (event)
 	if not global.zoom then global.zoom = {} end
 	if not global.zoom[event.player_index] then global.zoom[event.player_index] = 0 end
 	if global.zoom[event.player_index] < 20 then
@@ -262,7 +265,7 @@ script.on_event("more-zoom", function (event)
 	end
 	game.players[event.player_index].zoom = (1/2)^(global.zoom[event.player_index] / 3)
 end)
-script.on_event("less-zoom", function (event)
+Event.register("less-zoom", function (event)
 	if not global.zoom then global.zoom = {} end
 	if not global.zoom[event.player_index] then global.zoom[event.player_index] = 0 end
 	if global.zoom[event.player_index] > -20 then
@@ -288,7 +291,7 @@ local function tech_calc(techs)
 
     while #techs > 0 do
 		local tech = game.technology_prototypes[techs[1]]
-		table.remove(techs, 1)
+        table.remove(techs, 1)
 		if not all_techs[tech.name] then
 			all_techs[tech.name] = true
 			if tech.research_unit_ingredients  then
@@ -301,7 +304,9 @@ local function tech_calc(techs)
 			end
 
             if tech.prerequisites then
-                Table.concat_lists{techs, tech.prerequisites}
+                for _, prereq in pairs(tech.prerequisites) do
+                    table.insert(techs, prereq.name)
+                end
 			end
 		end
 	end
@@ -326,8 +331,8 @@ local function tech_calc(techs)
 	end
 end
 
-commands.add_command("calc", "Calculate Technology costs. Example: /calc {\"automobilism, concrete\"}", function(event)
-    local t = loadstring(event.parameter)
+commands.add_command("calc", "Calculate Technology costs. Example call: /calc return {\"automobilism, concrete\"}", function(event)
+    local t = loadstring(event.parameter)()
     tech_calc(t)
 end)
 --[[
@@ -343,3 +348,155 @@ end)
 		 "electric-engine",
     }
 --]]
+
+
+
+
+
+-- Speed Control
+------------------------------------------------------------------------------
+
+-- Speed is obviously shared but settings are per player.
+
+local function set_speed(player_index, level)
+    local speed_ctrl = global.speed_ctrl[player_index]
+	if not level then level = speed_ctrl.speed_level end
+	if level >= 1 then
+		game.speed = speed_ctrl.speeds[math.floor(level)] / 60
+	end
+end
+
+local function make_gui(player)
+	local flow = mod_gui.get_frame_flow(player)
+	if not flow.time_frame then
+		local frame = flow.add{type="frame", name="time_frame"}
+		frame.style.minimal_width = 300
+		local label = frame.add{type="label", name="speed_label", caption="Speed, Current Tick", direction="vertical"}
+		-- frame.style.font_color = {r=0xff/255, g=0xcc/255, b=0}
+		label.style.top_padding = 0
+		label.style.font = "default-bold"
+    end
+
+    Gui.make_hide_button(player, flow.time_frame, true, "virtual-signal/signal-T")
+end
+
+
+-- Custom Inputs
+
+Event.register("speedctrl-halt", function(event)
+    local speed_ctrl = global.speed_ctrl[event.player_index]
+	speed_ctrl.speed_level = speed_ctrl.halt_speed_level
+	set_speed(event.player_index)
+end)
+
+Event.register("speedctrl-speed-up", function(event)
+    local speed = game.speed * 60
+    local speed_ctrl = global.speed_ctrl[event.player_index]
+
+	if speed ~= speed_ctrl.speeds[speed_ctrl.speed_level] then
+		for ind, spd in pairs(speed_ctrl.speeds) do
+			if spd == speed then
+				speed_ctrl.speed_level = ind
+				break
+			elseif speed < spd then
+				speed_ctrl.speed_level = ind - 0.5
+				break
+			end
+		end
+	end
+	if speed_ctrl.speed_level < #speed_ctrl.speeds then
+		speed_ctrl.speed_level = math.floor(speed_ctrl.speed_level + 1)
+		set_speed(event.player_index)
+	end
+end)
+Event.register("speedctrl-speed-down", function(event)
+    local speed = game.speed * 60
+    local speed_ctrl = global.speed_ctrl[event.player_index]
+
+	if speed ~= speed_ctrl.speeds[speed_ctrl.speed_level] then
+		for ind, spd in pairs(speed_ctrl.speeds) do
+			if spd == speed then
+				speed_ctrl.speed_level = ind
+				break
+			elseif speed < spd then
+				speed_ctrl.speed_level = ind - 0.5
+				break
+			end
+		end
+	end
+	if speed_ctrl.speed_level > 1 then
+		speed_ctrl.speed_level = math.ceil(speed_ctrl.speed_level - 1)
+		set_speed(event.player_index)
+	end
+end)
+
+
+local function on_tick()
+    local speed = game.speed * 60
+	global.speed_ctrl.time = global.speed_ctrl.time + 1 / game.speed / 60
+
+    for player_index, player in pairs(game.players) do
+        --local speed_ctrl = global.speed_ctrl[player.index]
+
+        -- UI Update
+        if game.tick % math.floor(game.speed * 20 + 1) ~= 0 then return end
+
+        if player.gui then
+			local modflow = mod_gui.get_frame_flow(player)
+			if modflow.time_frame then
+				local s
+				if player.mod_settings["speedctrl-show-realtime"].value then
+					s = "FPS Cap: " .. Math.roundn(speed, 1) .. ", Tick: " .. game.tick .. ", Time: " .. Math.formatted_time(global.speed_ctrl.time) 
+				else
+					s = "FPS Cap: " .. Math.roundn(speed, 1) .. ", Tick: " .. game.tick
+				end
+				if player.selected then
+					if s ~= "" then s = s .. ", " end
+					s = s .. "Selected: {" .. Math.roundn(player.selected.position.x, 1) .. ", " .. Math.roundn(player.selected.position.y, 1) .. "}"
+				end
+
+				modflow.time_frame.speed_label.caption = s
+			end
+		end
+	end
+end
+
+local function setup_player(event)
+	local player = game.players[event.player_index]
+
+    make_gui(player)
+
+    local speed_ctrl = global.speed_ctrl[event.player_index]
+    if not speed_ctrl then
+        local default = player.mod_settings["speedctrl-default-speed-level"].value
+        speed_ctrl = {
+            speeds = {60},
+            speed_level = 1,
+            time = 0,
+            halt_speed_level = player.mod_settings["speedctrl-halt-speed-level"].value,
+            speed_level = default,
+            default_speed_level = default
+        }
+        global.speed_ctrl[player.index] = speed_ctrl
+    end
+
+    speed_ctrl.speeds = {}
+	for i = 1, player.mod_settings["speedctrl-used-speeds"].value do
+		speed_ctrl.speeds[i] = player.mod_settings["speedctrl-speed-" .. i].value
+	end
+end
+
+
+
+
+Event.register(defines.events.on_runtime_mod_setting_changed, setup_player)
+Event.register(defines.events.on_player_joined_game, setup_player)
+Event.register(defines.events.on_tick, on_tick)
+
+Event.register(Event.core_events.init, function()
+    global.speed_ctrl = global.speed_ctrl or {time = 0}
+
+	for _,player in pairs(game.players) do
+		setup_player({player_index = player.index})
+	end
+end)
