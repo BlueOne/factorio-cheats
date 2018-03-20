@@ -367,6 +367,8 @@ local function set_speed(player_index, level)
 end
 
 local function make_gui(player)
+	if not player.mod_settings["speedctrl-show-ui-on-init"].value then return end
+	
 	local flow = mod_gui.get_frame_flow(player)
 	if not flow.time_frame then
 		local frame = flow.add{type="frame", name="time_frame"}

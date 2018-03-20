@@ -61,15 +61,23 @@ data:extend(setting_prototypes)
 
 
 
--- Deactivate Spawners etc.
+data:extend{
+	-- Deactivate Spawners etc.
+	{
+		type = "bool-setting",
+		name = "cheats-inactive-spawners",
+		default_value = false,
+		order = "a_spawners",
+		setting_type = "runtime-global",
+	},
 
-local setting = {
-	type = "bool-setting",
-	name = "cheats-inactive-spawners",
-	default_value = false,
-	order = "a_spawners",
-	setting_type = "runtime-global",
+	-- UI
+	{
+		type = "bool-setting",
+		name = "speedctrl-show-ui-on-init",
+		default_value = false,
+		order = "a_speed_ui",
+		setting_type = "runtime-per-user",
+	},
 }
-
-data:extend({setting})
 
