@@ -368,7 +368,7 @@ end
 
 local function make_gui(player)
 	if not player.mod_settings["speedctrl-show-ui-on-init"].value then return end
-	
+
 	local flow = mod_gui.get_frame_flow(player)
 	if not flow.time_frame then
 		local frame = flow.add{type="frame", name="time_frame"}
@@ -495,9 +495,10 @@ Event.register(defines.events.on_runtime_mod_setting_changed, setup_player)
 Event.register(defines.events.on_player_joined_game, setup_player)
 Event.register(defines.events.on_tick, on_tick)
 
-Event.register(Event.core_events.init, function()
-    global.speed_ctrl = global.speed_ctrl or {time = 0}
+global.speed_ctrl = global.speed_ctrl or {time = 0}
+if not global.speed_ctrl.time then global.speed_ctrl.time = 0 end
 
+Event.register(Event.core_events.init, function()
 	for _,player in pairs(game.players) do
 		setup_player({player_index = player.index})
 	end

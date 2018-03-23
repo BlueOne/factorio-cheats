@@ -90,7 +90,7 @@ data:extend{
 
 -- Cliffs
 --------------------------------------------------------------------------
-Table.merge_inplace{data.raw.cliff.cliff, {
+Table.merge_into_first{data.raw.cliff.cliff, {
     flags = {"placeable-neutral", "placeable-player", "player-creation"},
     selectable_in_game = true
 }}
